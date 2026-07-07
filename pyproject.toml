@@ -1,0 +1,18 @@
+[project]
+name = "agentic-cli"
+version = "0.0.1"
+description = "A supervisory framework for agentic development — define, compile, supervise, record."
+requires-python = ">=3.9"
+# Intentionally zero runtime dependencies. PyYAML is used if present, but a
+# built-in YAML fallback keeps the POC installable and runnable anywhere.
+dependencies = []
+
+[project.scripts]
+agentic = "agentic.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

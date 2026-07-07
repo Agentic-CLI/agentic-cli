@@ -1,0 +1,54 @@
+schema_version: "1"
+name: todo-app
+sdlc:
+  roles:
+    - id: feature-engineer
+      role: Build the feature end to end; write tests; keep changes small and reversible.
+      owns:
+        - src/**
+      capabilities:
+        - read
+        - edit
+        - write
+        - bash
+      pairs_with:
+        - reviewer
+    - id: reviewer
+      role: Independently review for correctness first, then simplification. Never edits code.
+      capabilities:
+        - read
+        - grep
+        - bash
+  lifecycle:
+    phases:
+      - discover
+      - plan
+      - implement
+      - qa
+      - review
+      - ship
+    gates:
+      definition_of_ready:
+        after: plan
+        requires:
+          - plan_note
+      definition_of_done:
+        after: ship
+        requires:
+          - test_evidence
+          - review_pass
+  sensitivity:
+    rules:
+      - match:
+          paths:
+            - "**/models/**"
+            - "**/*schema*"
+            - "**/auth/**"
+            - "**/*migration*"
+        level: sensitive
+        require:
+          - adversarial_review
+          - human_relay
+projections:
+  - claude-code
+  - agents-md

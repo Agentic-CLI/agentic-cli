@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Runtime provenance artifacts (regenerated locally by `agentic`)
+examples/**/.agentic/ledger/
+examples/**/.agentic/relay/
