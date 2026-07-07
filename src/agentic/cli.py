@@ -8,7 +8,7 @@ import argparse
 import os
 import sys
 
-from . import _yaml, bundle, gate, ledger, observe, projector
+from . import __version__, _yaml, bundle, gate, ledger, observe, projector
 from .util import find_project_root
 
 C = {"g": "\033[32m", "r": "\033[31m", "y": "\033[33m", "b": "\033[34m", "d": "\033[2m", "0": "\033[0m"}
@@ -149,6 +149,7 @@ def cmd_relay(args):
 
 def build_parser():
     p = argparse.ArgumentParser(prog="agentic", description="A supervisory framework for agentic development.")
+    p.add_argument("-V", "--version", action="version", version=f"agentic {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pi = sub.add_parser("init", help="scaffold .agentic/bundle.yaml")

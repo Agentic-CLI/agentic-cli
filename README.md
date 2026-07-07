@@ -53,25 +53,38 @@ flowchart TB
     R --> L
 ```
 
-## Quickstart
+## Install
 
 **Zero dependencies.** Runs on stock Python 3.9+ (uses PyYAML if present, otherwise a built-in YAML fallback).
 
 ```bash
-# Install (pipx keeps it isolated and on your PATH — recommended for CLIs)
-pipx install git+https://github.com/Agentic-CLI/agentic-cli.git
-
-# ── in any repo ──
-agentic init            # 1. Define — scaffold .agentic/bundle.yaml
-agentic project         # 2. Compile — generate .claude/, .cursor/, AGENTS.md + hooks
-agentic ledger          # 4. Record — read the provenance trail (empty until agents run)
+# One-liner — picks uv → pipx → venv automatically
+curl -fsSL https://raw.githubusercontent.com/Agentic-CLI/agentic-cli/main/install.sh | bash
 ```
 
-Don't want to install anything? Clone and run the launcher directly:
+<details>
+<summary>Prefer a specific tool?</summary>
+
+```bash
+uv tool install git+https://github.com/Agentic-CLI/agentic-cli.git    # modern, fast
+pipx install    git+https://github.com/Agentic-CLI/agentic-cli.git    # classic, isolated
+```
+
+Or run it with **no install** at all:
 
 ```bash
 git clone https://github.com/Agentic-CLI/agentic-cli.git
 ./agentic-cli/agentic --help
+```
+</details>
+
+## Quickstart
+
+```bash
+# ── in any repo ──
+agentic init            # 1. Define — scaffold .agentic/bundle.yaml
+agentic project         # 2. Compile — generate .claude/, .cursor/, AGENTS.md + hooks
+agentic ledger          # 4. Record — read the provenance trail (empty until agents run)
 ```
 
 ## See a gate fire
