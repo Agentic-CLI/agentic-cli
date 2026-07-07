@@ -81,6 +81,31 @@ def test_allows_non_file_tool(tmp_path, monkeypatch):
     assert entry["subject"] == {"type": "tool", "ref": "Bash"}
 
 
+# --------------------------------------------------------- gate log (observability)
+def test_gate_log_records_both_allow_and_block(tmp_path, monkeypatch):
+    root = _make_project(tmp_path)
+
+    # A normal (allow) event appends one line to the gate log.
+    _run_gate(monkeypatch, {
+        "cwd": root, "session_id": "s", "tool_name": "Edit",
+        "tool_input": {"file_path": "src/todo/api.py"},
+    })
+    with open(ledger.gate_log_path(root)) as f:
+        after_allow = f.read().splitlines()
+    assert len(after_allow) == 1
+    assert "allow" in after_allow[0]
+
+    # A sensitive (block) event appends a second line — the log grows.
+    _run_gate(monkeypatch, {
+        "cwd": root, "session_id": "s", "tool_name": "Write",
+        "tool_input": {"file_path": "src/todo/models/todo.py"},
+    })
+    with open(ledger.gate_log_path(root)) as f:
+        after_block = f.read().splitlines()
+    assert len(after_block) == 2
+    assert "block" in after_block[1]
+
+
 # ------------------------------------------------------------- edge cases
 def test_returns_zero_outside_agentic_project(tmp_path, monkeypatch):
     """No .agentic dir anywhere → stay out of the way, record nothing."""

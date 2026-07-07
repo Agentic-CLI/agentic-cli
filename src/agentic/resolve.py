@@ -169,4 +169,16 @@ def effective_bundle(root: str, update: bool = False) -> dict:
         for d in std_defs:
             if d.get("id") not in seen:
                 stds.append({"id": d.get("id"), "title": d.get("title", d.get("id")), "rules": d.get("rules", [])})
+
+    # lifecycle packs supply phases + gates (+ loops). Local always wins; if
+    # several lifecycle packs are extended, the last one listed wins.
+    lifecycle_defs = [d for d in definitions.values() if d.get("kind") == "lifecycle"]
+    if lifecycle_defs:
+        sdlc = data.setdefault("sdlc", {})
+        pack = lifecycle_defs[-1]
+        local_lc = sdlc.get("lifecycle") or {}
+        if not local_lc.get("phases"):
+            sdlc["lifecycle"] = {"phases": pack.get("phases"), "gates": pack.get("gates") or {}}
+            if not sdlc.get("loops"):
+                sdlc["loops"] = pack.get("loops") or {}
     return data

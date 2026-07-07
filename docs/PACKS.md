@@ -26,8 +26,8 @@ acme/agentic/
 ├── personas/          # one file per persona
 │   ├── security-reviewer.yaml
 │   └── principal-architect.yaml
-├── packs/             # standards / policy bundles (future)
-├── lifecycles/        # phase + gate templates (future)
+├── packs/             # standards / policy bundles
+├── lifecycles/        # phase + gate templates
 └── README.md
 ```
 
@@ -56,6 +56,31 @@ rules:
   - "No floats for money — integer minor units only"
   - "Fail closed on compliance checks"
 ```
+
+A **lifecycle** pack supplies the SDLC's `phases`, `gates`, and (optionally)
+`loops` — the phase+gate template a project runs, reused across repos:
+
+```yaml
+kind: lifecycle
+id: staff-sdlc
+version: "0.1.0"
+phases: [discover, plan, implement, qa, review, ship]
+gates:
+  definition_of_ready: { after: plan, requires: [plan_note] }
+  definition_of_done:  { after: ship, requires: [test_evidence, review_pass] }
+loops:
+  implement: { until: tests_pass, max_attempts: 3, on_exhausted: relay }
+```
+
+Resolution rules:
+
+- **Local wins.** If the project's bundle already defines `sdlc.lifecycle.phases`,
+  the pack does not override it (and its `loops` are likewise ignored unless the
+  project has no local `sdlc.loops`).
+- **Last pack wins.** If several lifecycle packs are `extends`-ed, the one listed
+  last supplies the phases/gates/loops.
+
+No `use:` is needed — a lifecycle pack applies globally, like a standard.
 
 ## Source syntax
 
@@ -148,6 +173,6 @@ Upgrades are deliberate (`agentic lock --update`) and reviewable — never silen
 
 ## Roadmap
 
-- `lifecycles/` (phase+gate templates) via the same resolver, and standards → auto-generated gates
+- standards → auto-generated gates
 - ed25519-signed pack provenance
 - a hosted registry (discovery, marketplace, private packs) — value **on top of** git, never required

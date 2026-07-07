@@ -91,6 +91,44 @@ def entries(root: str, run_id: str | None = None):
     return [e for e in all_e if e.get("run_id") == run_id] if run_id else all_e
 
 
+# --------------------------------------------------------------- live tail
+def since(root: str, seq: int):
+    """Return entries whose ``seq >= seq`` (for tailing). [] if the log is empty."""
+    return [e for e in _read_entries(root) if e.get("seq", -1) >= seq]
+
+
+def follow(root: str, printer, poll: float = 0.5) -> None:
+    """Live tail: call ``printer(entry)`` for each new entry as it appears.
+
+    Tracks how many entries have been emitted; polls the log every ``poll``
+    seconds. Returns cleanly on KeyboardInterrupt and never crashes if the log
+    file does not exist yet.
+    """
+    emitted = 0
+    try:
+        while True:
+            for entry in since(root, emitted):
+                printer(entry)
+                emitted = entry.get("seq", emitted) + 1
+            time.sleep(poll)
+    except KeyboardInterrupt:
+        return
+
+
+def gate_log_path(root: str) -> str:
+    return os.path.join(_agentic_dir(root), "ledger", "gate.log")
+
+
+def gate_log(root: str, line: str) -> None:
+    """Append a human-readable ``line`` to ``.agentic/ledger/gate.log``."""
+    if not line.endswith("\n"):
+        line += "\n"
+    path = gate_log_path(root)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a") as f:
+        f.write(line)
+
+
 # --------------------------------------------------------------- relay
 def open_relay(root: str, run_id: str, reason: str, subject: dict) -> dict:
     os.makedirs(relay_dir(root), exist_ok=True)

@@ -8,7 +8,7 @@ import argparse
 import os
 import sys
 
-from . import __version__, _yaml, bundle, gate, ledger, observe, projector, resolve, run
+from . import __version__, _yaml, bundle, deliver, gate, ledger, observe, projector, resolve, run
 from .util import find_project_root
 
 C = {"g": "\033[32m", "r": "\033[31m", "y": "\033[33m", "b": "\033[34m", "d": "\033[2m", "0": "\033[0m"}
@@ -86,6 +86,17 @@ def cmd_doctor(args):
 
 def cmd_ledger(args):
     root = _root_or_die()
+    if getattr(args, "follow", False):
+        print(_c("d", "following ledger — Ctrl-C to stop"))
+
+        def _line(e):
+            dec = e.get("decision", "")
+            col = "r" if dec == "block" else "g" if dec in ("allow", "observed", "advance", "merged") else "y"
+            print(f"{_c('d', e.get('ts',''))}  {_c('b', e['run_id'][:10])}  "
+                  f"{e.get('event',''):<14} {_c(col, dec):<9} {e.get('subject',{}).get('ref','')}")
+
+        ledger.follow(root, _line)
+        return 0
     es = ledger.entries(root, args.run)
     if not es:
         print(_c("d", "ledger empty"))
@@ -277,6 +288,59 @@ def cmd_mcp(args):
     return 0
 
 
+def _find_epic(root, eid):
+    e = deliver.load(root, eid)
+    if e:
+        return e
+    return next((x for x in deliver.list_epics(root) if x["epic_id"].startswith(eid)), None)
+
+
+def cmd_deliver(args):
+    root = _root_or_die()
+    try:
+        if args.deliver_cmd == "start":
+            epic = deliver.start(root, args.titles)
+            print(_c("g", f"✓ epic {epic['epic_id'][:10]} — {len(epic['items'])} items in isolated worktrees"))
+            for it in epic["items"]:
+                print(f"  {_c('b', it['run_id'][:10])}  {it['branch']:<18} {os.path.relpath(it['worktree'], root)}")
+            print(_c("d", f"  next: agentic deliver schedule {epic['epic_id'][:10]}"))
+            return 0
+        if args.deliver_cmd == "status":
+            epics = [_find_epic(root, args.epic_id)] if args.epic_id else deliver.list_epics(root)
+            epics = [e for e in epics if e]
+            if not epics:
+                print(_c("d", "no epics"))
+                return 0
+            for e in epics:
+                print(_c("b", e["epic_id"][:10]) + _c("d", f"  base {e['base_branch']} · {len(e['items'])} items"))
+                for it in e["items"]:
+                    r = run.load(root, it["run_id"])
+                    state = "merged" if it["merged"] else (r["status"] if r else "?")
+                    print(f"    {it['run_id'][:10]}  {state:<14} {(r['phase'] if r else '?'):<10} {it['title']}")
+            return 0
+        if args.deliver_cmd == "schedule":
+            ep = _find_epic(root, args.epic_id)
+            if not ep:
+                print(_c("r", f"no such epic: {args.epic_id}"))
+                return 1
+            batches = deliver.schedule(root, ep["epic_id"])
+            print(_c("g", f"{len(batches)} batch(es) — items within a batch can run in parallel:"))
+            for i, b in enumerate(batches, 1):
+                print(f"  batch {i}: " + ", ".join(it["title"] for it in b))
+            return 0
+        if args.deliver_cmd == "merge":
+            res = deliver.merge(root, args.run_id)
+            if res.get("ok"):
+                print(_c("g", f"✓ merged {res['branch']} → {res['base']}") + _c("d", "  (worktree + branch removed)"))
+                return 0
+            print(_c("r", "✗ " + res.get("reason", "merge failed")))
+            return 2
+    except (RuntimeError, ValueError) as e:
+        print(_c("r", "✗ " + str(e)))
+        return 1
+    return 1
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="agentic", description="A supervisory framework for agentic development.")
     p.add_argument("-V", "--version", action="version", version=f"agentic {__version__}")
@@ -298,6 +362,7 @@ def build_parser():
 
     pl = sub.add_parser("ledger", help="show the provenance ledger")
     pl.add_argument("--run", help="filter by run_id")
+    pl.add_argument("--follow", "-f", action="store_true", help="live tail as events arrive")
     pl.set_defaults(func=cmd_ledger)
 
     pt = sub.add_parser("trace", help="show one run's events")
@@ -340,6 +405,18 @@ def build_parser():
 
     pmc = sub.add_parser("mcp", help="run the MCP server (stdio) so agents can call agentic")
     pmc.set_defaults(func=cmd_mcp)
+
+    pdl = sub.add_parser("deliver", help="drive an epic: many items in isolated git worktrees, collision-aware")
+    dls = pdl.add_subparsers(dest="deliver_cmd", required=True)
+    d_s = dls.add_parser("start", help="start an epic from item titles")
+    d_s.add_argument("titles", nargs="+")
+    d_sc = dls.add_parser("schedule", help="show parallel/serial batches (collision-aware)")
+    d_sc.add_argument("epic_id")
+    d_st = dls.add_parser("status", help="show epics and item progress")
+    d_st.add_argument("epic_id", nargs="?")
+    d_m = dls.add_parser("merge", help="merge a completed item back to base")
+    d_m.add_argument("run_id")
+    pdl.set_defaults(func=cmd_deliver)
 
     pr = sub.add_parser("relay", help="human-in-the-loop queue")
     rsub = pr.add_subparsers(dest="relay_cmd", required=True)

@@ -38,6 +38,18 @@ def template(tmp_path):
         '  - "No floats for money — integer minor units only"\n'
         '  - "Fail closed on compliance checks"\n'
     )
+    (tpl / "lifecycles").mkdir()
+    (tpl / "lifecycles" / "staff-sdlc.yaml").write_text(
+        "kind: lifecycle\n"
+        "id: staff-sdlc\n"
+        'version: "0.1.0"\n'
+        "phases: [discover, plan, implement, qa, review, ship]\n"
+        "gates:\n"
+        "  definition_of_ready: { after: plan, requires: [plan_note] }\n"
+        "  definition_of_done:  { after: ship, requires: [test_evidence, review_pass] }\n"
+        "loops:\n"
+        "  implement: { until: tests_pass, max_attempts: 3, on_exhausted: relay }\n"
+    )
     _git(["init", "-q", "-b", "main"], tpl)
     _git(["add", "-A"], tpl)
     _git(["-c", "user.name=T", "-c", "user.email=t@t", "commit", "-qm", "init"], tpl)
@@ -169,6 +181,58 @@ def test_standard_pack_applies_globally(tmp_path, template, monkeypatch):
     files = projector.render(eff)
     assert "Payment platform invariants" in files["AGENTS.md"]
     assert any(p.endswith("standards.mdc") for p in files)
+
+
+def test_lifecycle_pack_applies_when_no_local_phases(tmp_path, template, monkeypatch):
+    tpl, _sha = template
+    monkeypatch.setenv("AGENTIC_CACHE", str(tmp_path / "cache"))
+    source = f"git::file://{tpl}//lifecycles/staff-sdlc.yaml@v0.1.0"
+    proj = tmp_path / "proj"
+    (proj / ".agentic").mkdir(parents=True)
+    bundle.save(
+        str(proj),
+        {
+            "schema_version": "1",
+            "name": "proj",
+            "extends": [source],
+            "sdlc": {"roles": [{"id": "eng", "capabilities": ["edit"]}]},
+            "projections": ["claude-code"],
+        },
+    )
+    eff = resolve.effective_bundle(str(proj))
+
+    lc = eff["sdlc"]["lifecycle"]
+    assert lc["phases"] == ["discover", "plan", "implement", "qa", "review", "ship"]
+    assert lc["gates"]["definition_of_ready"]["after"] == "plan"
+    assert lc["gates"]["definition_of_done"]["requires"] == ["test_evidence", "review_pass"]
+    assert eff["sdlc"]["loops"]["implement"]["max_attempts"] == 3
+
+
+def test_lifecycle_pack_local_phases_win(tmp_path, template, monkeypatch):
+    tpl, _sha = template
+    monkeypatch.setenv("AGENTIC_CACHE", str(tmp_path / "cache"))
+    source = f"git::file://{tpl}//lifecycles/staff-sdlc.yaml@v0.1.0"
+    proj = tmp_path / "proj"
+    (proj / ".agentic").mkdir(parents=True)
+    bundle.save(
+        str(proj),
+        {
+            "schema_version": "1",
+            "name": "proj",
+            "extends": [source],
+            "sdlc": {
+                "roles": [{"id": "eng", "capabilities": ["edit"]}],
+                "lifecycle": {"phases": ["plan", "ship"]},
+            },
+            "projections": ["claude-code"],
+        },
+    )
+    eff = resolve.effective_bundle(str(proj))
+
+    # local lifecycle wins — the pack does not override it
+    assert eff["sdlc"]["lifecycle"]["phases"] == ["plan", "ship"]
+    assert "gates" not in eff["sdlc"]["lifecycle"]
+    assert "loops" not in eff["sdlc"]
 
 
 def test_missing_use_definition_raises(tmp_path, template, monkeypatch):

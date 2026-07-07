@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-07
+
+Alpha. Parallel delivery, live observability, and lifecycle packs.
+
+### Added
+- **`agentic deliver`** — drive an epic (many work-items) through the lifecycle in isolated **git worktrees**, with collision-aware scheduling (disjoint items parallel, path-colliding items serialized) and a conflict-aware, sequential **merge queue** (`deliver start/schedule/status/merge`).
+- **Live observability** — `agentic ledger --follow` (live tail) and a human-readable `.agentic/ledger/gate.log` written for every gate decision (allow and block).
+- **Lifecycle packs** (`kind: lifecycle`) — reusable phase + gate + loop templates resolved via `extends` (local lifecycle wins; last pack wins). Completes the pack trio: persona / standard / lifecycle.
+
 ## [0.1.0] - 2026-07-07
 
 First feature release: the local trust loop plus a governed workflow runner and an MCP surface for agents.
@@ -27,5 +36,6 @@ First feature release: the local trust loop plus a governed workflow runner and 
 - `-V` / `--version` flag and `install.sh` one-line installer (auto-detects uv → pipx → venv).
 - Built-in zero-dependency YAML fallback (uses PyYAML when available).
 
-[Unreleased]: https://github.com/Agentic-CLI/agentic-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Agentic-CLI/agentic-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Agentic-CLI/agentic-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Agentic-CLI/agentic-cli/releases/tag/v0.1.0

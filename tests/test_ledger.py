@@ -86,6 +86,28 @@ def test_entries_filtered_by_run_id(tmp_path):
     assert len(ledger.entries(root)) == 3
 
 
+# --------------------------------------------------------------- since / gate_log
+def test_since_returns_only_entries_at_or_after_seq(tmp_path):
+    root = str(tmp_path)
+    for i in range(5):
+        ledger.append(root, {"event": "pre_tool", "n": i})
+    tail = ledger.since(root, 2)
+    assert [e["seq"] for e in tail] == [2, 3, 4]
+
+
+def test_since_on_empty_ledger_is_empty(tmp_path):
+    assert ledger.since(str(tmp_path), 0) == []
+
+
+def test_gate_log_appends_a_line(tmp_path):
+    root = str(tmp_path)
+    ledger.gate_log(root, "first line")
+    ledger.gate_log(root, "second line\n")
+    with open(ledger.gate_log_path(root)) as f:
+        lines = f.read().splitlines()
+    assert lines == ["first line", "second line"]
+
+
 # --------------------------------------------------------------- run_id
 def test_run_id_stable_per_session(tmp_path):
     root = str(tmp_path)

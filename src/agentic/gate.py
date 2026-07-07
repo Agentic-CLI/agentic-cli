@@ -65,6 +65,11 @@ def run(argv) -> int:
         "ts": ledger.now(),
     }
     ledger.append(root, entry)
+    ledger.gate_log(
+        root,
+        f"{entry['ts']}  {entry['decision']:<5} "
+        f"{entry.get('sensitivity', 'normal'):<9} {tool} {path or ''}",
+    )
 
     if blocking:
         item = ledger.open_relay(

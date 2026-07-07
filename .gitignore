@@ -15,3 +15,7 @@ venv/
 examples/**/.agentic/ledger/
 examples/**/.agentic/relay/
 examples/**/.agentic/runs/
+examples/**/.agentic/wt/
+examples/**/.agentic/deliver/
+.agentic/wt/
+.agentic/deliver/

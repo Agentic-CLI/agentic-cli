@@ -51,13 +51,16 @@ jobs:
             echo "Using release notes extracted from CHANGELOG.md"
             gh release create "$GITHUB_REF_NAME" dist/* \
               --title "$GITHUB_REF_NAME" \
+              --prerelease \
               --notes-file "$notes_file"
           else
             echo "No CHANGELOG section found; using auto-generated notes"
             gh release create "$GITHUB_REF_NAME" dist/* \
               --title "$GITHUB_REF_NAME" \
+              --prerelease \
               --generate-notes
           fi
+          # NOTE: --prerelease marks 0.x alpha releases as pre-release; drop it at 1.0.0.
 
       # -----------------------------------------------------------------------
       # DISABLED: Publish to PyPI via Trusted Publishing (OIDC).
