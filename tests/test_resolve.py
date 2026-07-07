@@ -27,6 +27,17 @@ def template(tmp_path):
         "capabilities: [read, grep, bash]\n"
         'refuses:\n  - "secrets in code"\n  - "auth bypass"\n'
     )
+    (tpl / "packs").mkdir()
+    (tpl / "packs" / "payments-invariants.yaml").write_text(
+        "kind: standard\n"
+        "id: payments-invariants\n"
+        'version: "0.1.0"\n'
+        'title: "Payment platform invariants"\n'
+        "rules:\n"
+        '  - "Idempotency at the datastore for every money mutation"\n'
+        '  - "No floats for money — integer minor units only"\n'
+        '  - "Fail closed on compliance checks"\n'
+    )
     _git(["init", "-q", "-b", "main"], tpl)
     _git(["add", "-A"], tpl)
     _git(["-c", "user.name=T", "-c", "user.email=t@t", "commit", "-qm", "init"], tpl)
@@ -128,6 +139,36 @@ def test_effective_bundle_offline_uses_lock(tmp_path, template, monkeypatch):
     # second resolve still works and keeps the same pinned sha
     resolve.effective_bundle(str(proj))
     assert resolve.load_lock(str(proj))["sources"][source]["resolved_commit"] == sha
+
+
+def test_standard_pack_applies_globally(tmp_path, template, monkeypatch):
+    tpl, _sha = template
+    monkeypatch.setenv("AGENTIC_CACHE", str(tmp_path / "cache"))
+    source = f"git::file://{tpl}//packs/payments-invariants.yaml@v0.1.0"
+    proj = tmp_path / "proj"
+    (proj / ".agentic").mkdir(parents=True)
+    bundle.save(
+        str(proj),
+        {
+            "schema_version": "1",
+            "name": "proj",
+            "extends": [source],
+            "sdlc": {
+                "roles": [{"id": "eng", "capabilities": ["edit"]}],
+                "lifecycle": {"phases": ["ship"]},
+            },
+            "projections": ["claude-code", "cursor", "agents-md"],
+        },
+    )
+    eff = resolve.effective_bundle(str(proj))
+
+    stds = eff["sdlc"]["standards"]
+    assert any(s["id"] == "payments-invariants" for s in stds)
+    assert any("no floats" in r.lower() for s in stds for r in s["rules"])
+
+    files = projector.render(eff)
+    assert "Payment platform invariants" in files["AGENTS.md"]
+    assert any(p.endswith("standards.mdc") for p in files)
 
 
 def test_missing_use_definition_raises(tmp_path, template, monkeypatch):

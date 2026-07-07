@@ -160,4 +160,13 @@ def effective_bundle(root: str, update: bool = False) -> dict:
             materialized.append(role)
     if "sdlc" in data:
         data["sdlc"]["roles"] = materialized
+
+    # standards packs apply globally (no `use:` needed — they're context, not roles)
+    std_defs = [d for d in definitions.values() if d.get("kind") == "standard"]
+    if std_defs:
+        stds = data.setdefault("sdlc", {}).setdefault("standards", [])
+        seen = {s.get("id") for s in stds}
+        for d in std_defs:
+            if d.get("id") not in seen:
+                stds.append({"id": d.get("id"), "title": d.get("title", d.get("id")), "rules": d.get("rules", [])})
     return data

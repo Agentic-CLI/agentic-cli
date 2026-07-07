@@ -45,6 +45,18 @@ refuses:
   - "auth bypass / IDOR"
 ```
 
+A **standard** pack (applies globally as context — no `use:` needed; renders into `AGENTS.md` and `.cursor/rules/standards.mdc`):
+
+```yaml
+kind: standard
+id: payments-invariants
+version: "0.1.0"
+title: "Payment platform invariants"
+rules:
+  - "No floats for money — integer minor units only"
+  - "Fail closed on compliance checks"
+```
+
 ## Source syntax
 
 Terraform-style, in a project's `.agentic/bundle.yaml`:
@@ -136,6 +148,6 @@ Upgrades are deliberate (`agentic lock --update`) and reviewable — never silen
 
 ## Roadmap
 
-- `packs/` (standards → gates) and `lifecycles/` (phase+gate templates) via the same resolver
+- `lifecycles/` (phase+gate templates) via the same resolver, and standards → auto-generated gates
 - ed25519-signed pack provenance
 - a hosted registry (discovery, marketplace, private packs) — value **on top of** git, never required

@@ -150,6 +150,24 @@ def _cursor_lifecycle_mdc(data: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _cursor_standards_mdc(stds: list) -> str:
+    lines = [
+        "---",
+        "description: Engineering standards — always apply",
+        "alwaysApply: true",
+        "---",
+        f"<!-- {MARKER} -->",
+        "",
+        "# Standards",
+        "",
+    ]
+    for s in stds:
+        lines.append(f"## {s.get('title', s.get('id'))}")
+        lines += [f"- {r}" for r in s.get("rules", [])]
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 # ─────────────────────────────────────────────────────────── agents.md
 def _agents_md(data: dict) -> str:
     sdlc = data.get("sdlc", {})
@@ -170,6 +188,13 @@ def _agents_md(data: dict) -> str:
         for rule in sens:
             paths = ", ".join(rule.get("match", {}).get("paths", []))
             out.append(f"- `{paths}` → **{rule.get('level')}**: {', '.join(rule.get('require', []))}")
+    stds = sdlc.get("standards", [])
+    if stds:
+        out += ["", "## Standards", ""]
+        for s in stds:
+            out.append(f"**{s.get('title', s.get('id'))}**")
+            out += [f"- {r}" for r in s.get("rules", [])]
+            out.append("")
     out += ["", "_Edit `.agentic/bundle.yaml`, then run `agentic project` to regenerate._"]
     return "\n".join(out) + "\n"
 
@@ -202,6 +227,9 @@ def render(data: dict) -> dict[str, str]:
         for r in roles:
             files[os.path.join(".cursor", "rules", f"{r['id']}.mdc")] = _cursor_rule_mdc(r)
         files[os.path.join(".cursor", "rules", "lifecycle.mdc")] = _cursor_lifecycle_mdc(data)
+        stds = sdlc.get("standards", [])
+        if stds:
+            files[os.path.join(".cursor", "rules", "standards.mdc")] = _cursor_standards_mdc(stds)
 
     if "agents-md" in targets:
         files["AGENTS.md"] = _agents_md(data)
