@@ -57,6 +57,8 @@ def _claude_agent_md(role: dict) -> str:
         lines += ["", "**Owns (exclusive):** " + ", ".join(role["owns"])]
     if role.get("pairs_with"):
         lines += ["", "**Pairs with:** " + ", ".join(role["pairs_with"])]
+    if role.get("refuses"):
+        lines += ["", "**Refuses to ship:** " + ", ".join(role["refuses"])]
     return "\n".join(lines) + "\n"
 
 
@@ -115,6 +117,8 @@ def _cursor_rule_mdc(role: dict) -> str:
         body += ["", "**Owns (exclusive):** " + ", ".join(owns)]
     if role.get("pairs_with"):
         body += ["", "**Pairs with:** " + ", ".join(role["pairs_with"])]
+    if role.get("refuses"):
+        body += ["", "**Refuses to ship:** " + ", ".join(role["refuses"])]
     return "\n".join(front) + "\n" + "\n".join(body) + "\n"
 
 

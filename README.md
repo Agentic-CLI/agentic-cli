@@ -199,9 +199,9 @@ Learn more at **[agentic-cli.com](https://agentic-cli.com)**.
 
 ## Roadmap
 
-**Working today:** `init` · `project` (Claude Code + Cursor + AGENTS.md) · `gate` · `ledger`/`trace` · `relay` · `observe` (git) · `doctor` · hash-chained integrity.
+**Working today:** `init` · `project` (Claude Code + Cursor + AGENTS.md) · `gate` · `ledger`/`trace` · `relay` · `observe` (git) · `doctor` · hash-chained integrity · **reusable packs** — `add`/`lock` git-source personas with sha-pinned resolution and per-repo overrides ([docs/PACKS.md](docs/PACKS.md)).
 
-**Next:** ed25519 signing (replacing the hash-chain stand-in) · PR/CI/session-log observe adapters · `agentic add pattern` (installable policy packs) · the dev-time ↔ runtime `run_id` join.
+**Next:** ed25519 signing (replacing the hash-chain stand-in) · PR/CI/session-log observe adapters · standards & lifecycle packs + a hosted registry · the dev-time ↔ runtime `run_id` join.
 
 ## Contributing
 

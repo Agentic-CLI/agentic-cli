@@ -14,6 +14,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `agentic relay list` / `resolve` — human-in-the-loop approval queue.
 - `agentic observe` — reconstruct provenance from git history.
 - `agentic doctor` — validate the bundle, detect config drift, verify ledger integrity.
+- Reusable **packs** — `agentic add` / `agentic lock` resolve personas from any git repo (`extends: git::<repo>//<path>@<ref>`) with sha-pinned, reproducible resolution and per-repo `use:` / `overrides` merge. See [docs/PACKS.md](docs/PACKS.md).
+- `-V` / `--version` flag and `install.sh` one-line installer (auto-detects uv → pipx → venv).
 - Built-in zero-dependency YAML fallback (uses PyYAML when available).
 
 [Unreleased]: https://github.com/Agentic-CLI/agentic-cli/commits/main

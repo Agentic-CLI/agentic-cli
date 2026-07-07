@@ -123,7 +123,7 @@ def _parse_block(rows, idx, indent):
                 idx += 1
                 val, idx = _parse_block(rows, idx, cur_indent + 1)
                 seq.append(val)
-            elif ":" in rest and not rest.startswith("[") and not rest.startswith("{"):
+            elif ":" in rest and not rest.startswith(("[", "{", '"', "'")):
                 # inline map item: first key sits at cur_indent + 2 (after "- "),
                 # its sibling keys share that column, its nested value is deeper.
                 key_col = cur_indent + 2

@@ -8,7 +8,7 @@ import argparse
 import os
 import sys
 
-from . import __version__, _yaml, bundle, gate, ledger, observe, projector
+from . import __version__, _yaml, bundle, gate, ledger, observe, projector, resolve
 from .util import find_project_root
 
 C = {"g": "\033[32m", "r": "\033[31m", "y": "\033[33m", "b": "\033[34m", "d": "\033[2m", "0": "\033[0m"}
@@ -44,7 +44,7 @@ def cmd_init(args):
 
 def cmd_project(args):
     root = _root_or_die()
-    data = bundle.load(root)
+    data = resolve.effective_bundle(root)
     errs = bundle.validate(data)
     if errs:
         print(_c("r", "bundle invalid:"))
@@ -65,7 +65,7 @@ def cmd_gate(args):
 
 def cmd_doctor(args):
     root = _root_or_die()
-    data = bundle.load(root)
+    data = resolve.effective_bundle(root)
     errs = bundle.validate(data)
     for e in errs:
         print(_c("r", "bundle: " + e))
@@ -147,6 +147,44 @@ def cmd_relay(args):
     return 1
 
 
+def cmd_add(args):
+    root = _root_or_die()
+    data = bundle.load(root)
+    extends = data.setdefault("extends", []) or []
+    if args.source not in extends:
+        extends.append(args.source)
+    data["extends"] = extends
+    bundle.save(root, data)
+    # resolve to discover the persona id, then wire a `use:` role
+    repo, subpath, ref = resolve.parse_source(args.source)
+    dest, _sha = resolve.fetch(repo, ref)
+    defn = _yaml.load(open(os.path.join(dest, subpath)).read()) or {}
+    pid = defn.get("id")
+    if pid and defn.get("kind", "persona") == "persona":
+        roles = data.setdefault("sdlc", {}).setdefault("roles", [])
+        if not any(isinstance(r, dict) and (r.get("use") == pid or r.get("id") == pid) for r in roles):
+            roles.append({"use": pid})
+        bundle.save(root, data)
+    resolve.effective_bundle(root)  # write the lockfile
+    print(_c("g", f"✓ added {args.source}"))
+    if pid:
+        print(f"  persona {_c('b', pid)} wired — run {_c('b', 'agentic project')} to compile it in")
+    return 0
+
+
+def cmd_lock(args):
+    root = _root_or_die()
+    resolve.effective_bundle(root, update=args.update)
+    srcs = resolve.load_lock(root).get("sources", {})
+    if not srcs:
+        print(_c("d", "no extends: sources to lock"))
+        return 0
+    print(_c("g", f"✓ locked {len(srcs)} source(s):"))
+    for entry, meta in srcs.items():
+        print(f"  {entry}\n    {_c('d', '→ ' + meta['resolved_commit'][:12])}")
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="agentic", description="A supervisory framework for agentic development.")
     p.add_argument("-V", "--version", action="version", version=f"agentic {__version__}")
@@ -177,6 +215,14 @@ def build_parser():
     po = sub.add_parser("observe", help="ingest git history into the ledger")
     po.add_argument("--since", default="30 days ago")
     po.set_defaults(func=cmd_observe)
+
+    pa = sub.add_parser("add", help="add a persona/pack from a git source (extends)")
+    pa.add_argument("source", help="git::<repo>//<subpath>[@<ref>]")
+    pa.set_defaults(func=cmd_add)
+
+    pk = sub.add_parser("lock", help="resolve extends: sources and pin commit shas")
+    pk.add_argument("--update", action="store_true", help="re-resolve refs to latest")
+    pk.set_defaults(func=cmd_lock)
 
     pr = sub.add_parser("relay", help="human-in-the-loop queue")
     rsub = pr.add_subparsers(dest="relay_cmd", required=True)
