@@ -83,5 +83,5 @@ def default(name: str) -> dict:
                 ]
             },
         },
-        "projections": ["claude-code", "agents-md"],
+        "projections": ["claude-code", "cursor", "agents-md"],
     }

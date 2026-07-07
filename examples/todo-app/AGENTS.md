@@ -20,4 +20,4 @@
 
 - `**/models/**, **/*schema*, **/auth/**, **/*migration*` → **sensitive**: adversarial_review, human_relay
 
-_Changes to roles/lifecycle/gates are made in `.agentic/bundle.yaml`, then `agentic project`._
+_Edit `.agentic/bundle.yaml`, then run `agentic project` to regenerate._

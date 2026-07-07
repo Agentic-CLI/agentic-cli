@@ -51,4 +51,5 @@ sdlc:
           - human_relay
 projections:
   - claude-code
+  - cursor
   - agents-md
