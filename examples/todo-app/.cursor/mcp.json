@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agentic": {
+      "command": "/Users/yannick/Desktop/MSAI/agentic-cli/agentic",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

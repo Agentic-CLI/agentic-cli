@@ -14,3 +14,4 @@ venv/
 # Runtime provenance artifacts (regenerated locally by `agentic`)
 examples/**/.agentic/ledger/
 examples/**/.agentic/relay/
+examples/**/.agentic/runs/

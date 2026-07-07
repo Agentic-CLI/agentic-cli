@@ -8,7 +8,7 @@ import argparse
 import os
 import sys
 
-from . import __version__, _yaml, bundle, gate, ledger, observe, projector, resolve
+from . import __version__, _yaml, bundle, gate, ledger, observe, projector, resolve, run
 from .util import find_project_root
 
 C = {"g": "\033[32m", "r": "\033[31m", "y": "\033[33m", "b": "\033[34m", "d": "\033[2m", "0": "\033[0m"}
@@ -185,6 +185,98 @@ def cmd_lock(args):
     return 0
 
 
+def _find_run(root, rid):
+    if run.load(root, rid):
+        return rid
+    for x in run.list_runs(root):
+        if x["run_id"].startswith(rid):
+            return x["run_id"]
+    return None
+
+
+def cmd_run(args):
+    root = _root_or_die()
+    if args.run_cmd == "start":
+        r = run.start(root, args.title)
+        print(_c("g", f"✓ run {r['run_id']} started") + _c("d", f"  phase: {r['phase']}"))
+        print(f"  attach artifacts, then: {_c('b', 'agentic run advance ' + r['run_id'][:10])}")
+        return 0
+    if args.run_cmd == "list":
+        rs = run.list_runs(root)
+        if not rs:
+            print(_c("d", "no runs — start one with `agentic run start \"<title>\"`"))
+            return 0
+        for r in rs:
+            col = "g" if r["status"] == "done" else "y" if r["status"] == "awaiting_relay" else "b"
+            print(f"{_c('b', r['run_id'][:10])}  {_c(col, r['status']):<16} {r['phase']:<10} {r.get('title', '')}")
+        return 0
+    rid = _find_run(root, args.run_id)
+    if not rid:
+        print(_c("r", f"no such run: {args.run_id}"))
+        return 1
+    if args.run_cmd == "status":
+        r = run.load(root, rid)
+        print(_c("b", r["run_id"]) + f"  · {r['status']} · phase {r['phase']}")
+        print("  title:     " + r.get("title", ""))
+        print("  artifacts: " + (", ".join(r["artifacts"]) or "—"))
+        return 0
+    if args.run_cmd == "artifact":
+        r = run.submit_artifact(root, rid, args.name, args.ref)
+        print(_c("g", f"✓ artifact '{args.name}' recorded") + _c("d", f"  ({r['run_id'][:10]} · phase {r['phase']})"))
+        return 0
+    if args.run_cmd == "advance":
+        res = run.advance(root, rid)
+        if res.get("ok"):
+            if res.get("status") == "done":
+                print(_c("g", "✓ run complete — every phase passed its gate"))
+            else:
+                g = f" (gate {res['gate']})" if res.get("gate") else ""
+                print(_c("g", f"✓ advanced {res.get('from')} → {res['phase']}") + _c("d", g))
+            return 0
+        col = "y" if res.get("status") == "awaiting_relay" else "r"
+        print(_c(col, "✗ " + res.get("reason", "blocked")))
+        return 2
+    return 1
+
+
+def cmd_plan(args):
+    root = _root_or_die()
+    rid = _find_run(root, args.run_id)
+    if not rid:
+        print(_c("r", f"no such run: {args.run_id}"))
+        return 1
+    r = run.load(root, rid)
+    path = os.path.join(root, ".agentic", "runs", rid + ".plan.md")
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(f"# Plan — {r.get('title', '')}\n\n## Approach\n\n## Steps\n\n## Risks & rollback\n\n## Test strategy\n")
+    run.submit_artifact(root, rid, "plan_note", os.path.relpath(path, root))
+    print(_c("g", f"✓ plan scaffolded → {os.path.relpath(path, root)}") + _c("d", "  (artifact 'plan_note' recorded — Definition of Ready)"))
+    return 0
+
+
+def cmd_status(args):
+    root = _root_or_die()
+    data = resolve.effective_bundle(root)
+    sdlc = data.get("sdlc", {})
+    print(_c("b", data.get("name", "?")) + _c("d", " — agentic status"))
+    print(f"  roles {len(sdlc.get('roles', []))} · phases {len(sdlc.get('lifecycle', {}).get('phases', []))} · standards {len(sdlc.get('standards', []))}")
+    rs = run.list_runs(root)
+    counts = {k: sum(1 for r in rs if r["status"] == k) for k in ("active", "awaiting_relay", "done")}
+    print(f"  runs: {counts['active']} active · {counts['awaiting_relay']} awaiting relay · {counts['done']} done")
+    pending = sum(1 for x in ledger.list_relays(root) if x["status"] == "pending")
+    ok, count, bad = ledger.verify(root)
+    print(f"  pending relays: {pending}")
+    print(f"  ledger: {count} events · " + (_c("g", "chain valid") if ok else _c("r", f"tampered @ {bad}")))
+    return 0
+
+
+def cmd_mcp(args):
+    from . import mcp
+    mcp.serve(find_project_root() or os.getcwd())
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="agentic", description="A supervisory framework for agentic development.")
     p.add_argument("-V", "--version", action="version", version=f"agentic {__version__}")
@@ -223,6 +315,31 @@ def build_parser():
     pk = sub.add_parser("lock", help="resolve extends: sources and pin commit shas")
     pk.add_argument("--update", action="store_true", help="re-resolve refs to latest")
     pk.set_defaults(func=cmd_lock)
+
+    prn = sub.add_parser("run", help="drive a unit of work through the lifecycle (gate-enforced)")
+    rns = prn.add_subparsers(dest="run_cmd", required=True)
+    r_s = rns.add_parser("start", help="start a run")
+    r_s.add_argument("title")
+    rns.add_parser("list", help="list runs")
+    r_st = rns.add_parser("status", help="show one run")
+    r_st.add_argument("run_id")
+    r_a = rns.add_parser("artifact", help="record a gate artifact for a run")
+    r_a.add_argument("run_id")
+    r_a.add_argument("name")
+    r_a.add_argument("--ref")
+    r_av = rns.add_parser("advance", help="advance to the next phase (blocked until the gate is satisfied)")
+    r_av.add_argument("run_id")
+    prn.set_defaults(func=cmd_run)
+
+    ppl = sub.add_parser("plan", help="scaffold + record the plan note (Definition of Ready)")
+    ppl.add_argument("run_id")
+    ppl.set_defaults(func=cmd_plan)
+
+    pst = sub.add_parser("status", help="overview: bundle, runs, relays, ledger")
+    pst.set_defaults(func=cmd_status)
+
+    pmc = sub.add_parser("mcp", help="run the MCP server (stdio) so agents can call agentic")
+    pmc.set_defaults(func=cmd_mcp)
 
     pr = sub.add_parser("relay", help="human-in-the-loop queue")
     rsub = pr.add_subparsers(dest="relay_cmd", required=True)

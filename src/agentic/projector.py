@@ -37,6 +37,14 @@ def _cli_wrapper_path() -> str:
     return os.path.join(cli_root, "agentic")
 
 
+def _mcp_json() -> str:
+    """Register the local agentic MCP server so agents can call it (check_path,
+    get_standards, run_status, submit_artifact, advance_run, record, open_relay)."""
+    return json.dumps(
+        {"mcpServers": {"agentic": {"command": _cli_wrapper_path(), "args": ["mcp"]}}}, indent=2
+    ) + "\n"
+
+
 def _tools_for(role: dict) -> list[str]:
     return [CAP_TO_TOOL[c] for c in role.get("capabilities", []) if c in CAP_TO_TOOL]
 
@@ -222,6 +230,7 @@ def render(data: dict) -> dict[str, str]:
                 phase, gate_by_phase.get(phase)
             )
         files[os.path.join(".claude", "settings.json")] = _claude_settings_json()
+        files[".mcp.json"] = _mcp_json()
 
     if "cursor" in targets:
         for r in roles:
@@ -230,6 +239,7 @@ def render(data: dict) -> dict[str, str]:
         stds = sdlc.get("standards", [])
         if stds:
             files[os.path.join(".cursor", "rules", "standards.mdc")] = _cursor_standards_mdc(stds)
+        files[os.path.join(".cursor", "mcp.json")] = _mcp_json()
 
     if "agents-md" in targets:
         files["AGENTS.md"] = _agents_md(data)

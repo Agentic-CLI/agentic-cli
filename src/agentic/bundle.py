@@ -73,6 +73,9 @@ def default(name: str) -> dict:
                     "definition_of_done": {"after": "ship", "requires": ["test_evidence", "review_pass"]},
                 },
             },
+            "loops": {
+                "implement": {"until": "tests_pass", "max_attempts": 3, "on_exhausted": "relay"},
+            },
             "sensitivity": {
                 "rules": [
                     {

@@ -6,7 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-07
+
+First feature release: the local trust loop plus a governed workflow runner and an MCP surface for agents.
+
 ### Added
+- **Workflow runner** — `agentic run start/advance/status/list/artifact` drives a unit of work through the lifecycle; advancing is **blocked until the phase's gate artifacts exist** (Definition-of-Ready / Definition-of-Done enforcement), and every transition is recorded in the ledger.
+- **`agentic plan`** — scaffold and record the plan note (satisfies Definition of Ready).
+- **Loop policy** — `sdlc.loops.<phase>: {until, max_attempts, on_exhausted}`; an exhausted loop escalates to a human relay.
+- **`agentic mcp`** — MCP (stdio) server so agents can call agentic: `check_path`, `get_standards`, `run_status`, `submit_artifact`, `advance_run`, `record`, `open_relay`. Auto-registered via generated `.mcp.json` and `.cursor/mcp.json`.
+- **`agentic status`** — overview of bundle, runs, pending relays, and ledger integrity.
 - `agentic init` — scaffold `.agentic/bundle.yaml` (roles, lifecycle, gates, sensitivity).
 - `agentic project` — compile the bundle into `.claude/` (agents, skills, hooks), `.cursor/rules/`, and `AGENTS.md`.
 - `agentic gate` — Claude Code `PreToolUse` hook handler: records to the ledger, blocks sensitive paths, opens a relay.
@@ -18,4 +27,5 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `-V` / `--version` flag and `install.sh` one-line installer (auto-detects uv → pipx → venv).
 - Built-in zero-dependency YAML fallback (uses PyYAML when available).
 
-[Unreleased]: https://github.com/Agentic-CLI/agentic-cli/commits/main
+[Unreleased]: https://github.com/Agentic-CLI/agentic-cli/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Agentic-CLI/agentic-cli/releases/tag/v0.1.0
