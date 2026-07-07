@@ -18,6 +18,10 @@ def repo(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
     _git(["init", "-q", "-b", "main"], root)
+    # repo-local identity so deliver's internal `git merge` works even where
+    # there's no global git config (e.g. CI runners)
+    _git(["config", "user.name", "Test"], root)
+    _git(["config", "user.email", "test@example.com"], root)
     (root / ".agentic").mkdir()
     bundle.save(
         str(root),
