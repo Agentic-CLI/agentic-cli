@@ -5,9 +5,13 @@
 <h1 align="center">Agentic CLI</h1>
 
 <p align="center">
-  <strong>A supervisory framework for agentic development.</strong><br/>
-  Define your agent fleet, lifecycle, and gates once — compile them into any harness,
-  supervise every run, and record it all as tamper-evident provenance.
+  <strong>Governance for AI coding agents.</strong><br/>
+  You don't contain them — you <strong>supervise</strong> them, and the trace becomes the trust artifact.
+</p>
+
+<p align="center">
+  <em>An agent rewrote your auth layer at 2&nbsp;a.m. Who approved it? Which rules did it pass?<br/>
+  Today the honest answer is "read the diff and hope." Agentic CLI makes it an auditable fact.</em>
 </p>
 
 <p align="center">
@@ -17,24 +21,68 @@
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen" alt="Zero dependencies" />
 </p>
 
+<p align="center">⭐ Star to follow — built in the open.</p>
+
 ---
 
-## Why
-
-As agents write more of the code, **the code stops being the trust artifact — the trace of how it was produced becomes the artifact.** You can't establish trust by reading a diff a machine wrote at scale. Trust has to move to *provenance*: which agents, through which gates, with which human approvals, verified how.
+## What it is
 
 Every agent framework today is **containment** — LangGraph, CrewAI, AutoGen: *your agents run inside our runtime*. That's invasive; you rewrite your work to live in the box.
 
 **Agentic CLI is the inversion.** Your agents keep running inside Claude Code or Cursor. Agentic CLI *describes and supervises* them from the outside, and records what they did — without asking you to rewrite anything.
 
-> A framework by **declaration + supervision**, not by containment. Remove it and your generated config still works — you just lose the gates and the ledger.
+> A framework by **declaration + supervision**, not containment. Remove it and your generated config still works — you just lose the gates and the ledger.
 
-## The loop
+**Concepts, one line each:**
+- **Bundle** — one file (`.agentic/bundle.yaml`) declaring your agent roles, lifecycle, gates, and which paths are sensitive.
+- **Projector** — compiles that bundle into harness-native config (`.claude/`, `.cursor/`, `AGENTS.md`).
+- **Gate** — a hook that checks each agent action; sensitive ones can pause for a human.
+- **Relay** — the human-approval queue a gate opens when it blocks.
+- **Ledger** — an append-only, hash-chained record of what happened, keyed by run.
 
+The loop: **Define → Compile → Supervise → Record.**
+
+## Install
+
+**Zero dependencies.** Runs on stock Python 3.9+ (uses PyYAML if present, else a built-in fallback).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Agentic-CLI/agentic-cli/main/install.sh | bash
 ```
-Define  →  Compile  →  Supervise  →  Record
-bundle     projector   hooks/gates   trust ledger
+
+The installer auto-detects `uv → pipx → venv`. Prefer to pick? (or [read the script](install.sh) first):
+
+```bash
+uv tool install git+https://github.com/Agentic-CLI/agentic-cli.git    # modern, fast
+pipx install    git+https://github.com/Agentic-CLI/agentic-cli.git    # classic, isolated
+git clone https://github.com/Agentic-CLI/agentic-cli.git && ./agentic-cli/agentic --help   # no install
 ```
+
+## Quickstart — watch a gate fire
+
+The fastest "aha": set up governance, then make an agent's edit hit it. Using the bundled example:
+
+```bash
+cd examples/todo-app
+agentic init        # 1. Define — scaffold .agentic/bundle.yaml
+agentic project     # 2. Compile — generate .claude/, .cursor/, AGENTS.md + hooks
+                    # 3. Supervise happens automatically via the Claude Code hook
+
+# Simulate the exact event Claude Code sends the hook on each edit:
+echo '{"session_id":"s1","cwd":"'$PWD'","tool_name":"Edit","tool_input":{"file_path":"src/todo/api.py"}}' | agentic gate
+#   → exit 0: allowed (a normal file)
+
+echo '{"session_id":"s1","cwd":"'$PWD'","tool_name":"Write","tool_input":{"file_path":"src/todo/models/todo.py"}}' | agentic gate
+#   → exit 2: BLOCKED — a sensitive path; a relay is opened for a human
+
+agentic ledger        # 4. Record — both actions, hash-chained
+agentic relay list    # the blocked one, awaiting approval
+agentic relay resolve <id> --approve --approver you@co
+```
+
+That's the whole loop, visible in 60 seconds — no live agent required (the JSON is exactly what Claude Code's `PreToolUse` hook delivers).
+
+## How it works
 
 ```mermaid
 flowchart TB
@@ -46,50 +94,14 @@ flowchart TB
     CC -. wires .-> H["PreToolUse hook"]
     H -->|agentic gate| G{{Gate}}
     G -->|normal path| OK["✓ allow + record"]
-    G -->|sensitive path| BL["✕ block + open relay"]
+    G -->|sensitive + human_relay| BL["✕ block + open relay"]
     BL --> R["Relay queue<br/><i>human approves</i>"]
     OK --> L[("Trust Ledger<br/>append-only · hash-chained")]
     BL --> L
     R --> L
 ```
 
-## Install
-
-**Zero dependencies.** Runs on stock Python 3.9+ (uses PyYAML if present, otherwise a built-in YAML fallback).
-
-```bash
-# One-liner — picks uv → pipx → venv automatically
-curl -fsSL https://raw.githubusercontent.com/Agentic-CLI/agentic-cli/main/install.sh | bash
-```
-
-<details>
-<summary>Prefer a specific tool?</summary>
-
-```bash
-uv tool install git+https://github.com/Agentic-CLI/agentic-cli.git    # modern, fast
-pipx install    git+https://github.com/Agentic-CLI/agentic-cli.git    # classic, isolated
-```
-
-Or run it with **no install** at all:
-
-```bash
-git clone https://github.com/Agentic-CLI/agentic-cli.git
-./agentic-cli/agentic --help
-```
-</details>
-
-## Quickstart
-
-```bash
-# ── in any repo ──
-agentic init            # 1. Define — scaffold .agentic/bundle.yaml
-agentic project         # 2. Compile — generate .claude/, .cursor/, AGENTS.md + hooks
-agentic ledger          # 4. Record — read the provenance trail (empty until agents run)
-```
-
-## See a gate fire
-
-Once `agentic project` has wired the Claude Code hook, every edit an agent makes is checked. Here's the exact event flow — normal edits pass; edits to paths your bundle marks *sensitive* are blocked and routed to a human:
+The gate, in sequence — normal edits pass; edits to paths your bundle marks **sensitive with `human_relay`** are blocked and routed to a human:
 
 ```mermaid
 sequenceDiagram
@@ -102,7 +114,7 @@ sequenceDiagram
     H->>G: hook event (JSON on stdin)
     G->>G: match path vs sensitivity rules
     G->>L: append provenance entry (hash-chained)
-    alt sensitive path
+    alt sensitive path requiring human_relay
         G-->>H: exit 2 — BLOCK + open relay
         H-->>A: blocked — needs human approval
         Hu->>G: agentic relay resolve <id> --approve
@@ -112,48 +124,34 @@ sequenceDiagram
     end
 ```
 
-You can reproduce it without a live agent by feeding the gate the same JSON Claude Code sends:
-
-```bash
-cd examples/todo-app && agentic project
-
-# normal file → allowed (exit 0)
-echo '{"session_id":"s1","cwd":"'$PWD'","tool_name":"Edit","tool_input":{"file_path":"src/todo/api.py"}}' | agentic gate
-
-# sensitive file → BLOCKED + relay opened (exit 2)
-echo '{"session_id":"s1","cwd":"'$PWD'","tool_name":"Write","tool_input":{"file_path":"src/todo/models/todo.py"}}' | agentic gate
-
-agentic ledger          # both events, hash-chained
-agentic relay list      # the blocked one, awaiting a human
-```
+> **Harness support today:** the projector compiles to **Claude Code, Cursor, and AGENTS.md**. Runtime supervision (gate + relay + ledger) runs via **Claude Code's hooks** today; more harnesses as they expose hook points.
 
 ## Non-invasive by design
-
-Non-invasiveness isn't a feature bolted on — it's the constraint the whole tool is built around:
 
 | Tenet | How |
 |---|---|
 | **Additive, not intrusive** | One directory (`.agentic/`). Harness configs are *generated* and marked; commit or gitignore them at will. |
 | **Observe before enforce** | `agentic observe` reconstructs provenance from what already exists (git history today; PR/CI/session-log adapters next). |
 | **Out of the hot path** | Control runs at the harness's own hook boundary — never by wrapping the agent. If Agentic is gone, work proceeds. |
-| **Enforce only at declared gates** | Only paths your bundle marks *sensitive* can block. Everything else is recorded and proceeds. |
+| **Enforce only at declared gates** | Only paths your bundle marks *sensitive with `human_relay`* can block. Everything else is recorded and proceeds. |
 | **Local-first & git-native** | The ledger is append-only files under `.agentic/`. No cloud required to get value. |
 
 ## Commands
 
 | Command | Step | What it does |
 |---|---|---|
-| `agentic init` | Define | Scaffold `.agentic/bundle.yaml` (roles, lifecycle, gates, sensitivity) |
+| `agentic init` | Define | Scaffold `.agentic/bundle.yaml` |
 | `agentic project` | Compile | Generate `.claude/`, `.cursor/`, `AGENTS.md` from the bundle |
-| `agentic gate` | Supervise | PreToolUse hook handler — records to the ledger; blocks sensitive paths + opens a relay |
-| `agentic ledger` · `trace <run_id>` | Record | Read the append-only, hash-chained provenance ledger |
-| `agentic relay list` · `resolve` | Govern | Human-in-the-loop queue for blocked sensitive changes |
-| `agentic observe` | Observe | Reconstruct provenance from git history (zero behavior change) |
-| `agentic doctor` | — | Validate the bundle, detect config drift, verify ledger integrity |
+| `agentic gate` | Supervise | PreToolUse hook — records to the ledger; blocks sensitive+`human_relay` paths, opens a relay |
+| `agentic ledger` · `trace <run_id>` | Record | Read the append-only, hash-chained ledger (a *run* groups one agent session's actions) |
+| `agentic relay list` · `resolve` | Govern | Human-in-the-loop queue for blocked changes |
+| `agentic add` · `lock` | Packs | Reuse personas/standards from a git repo, sha-pinned ([docs/PACKS.md](docs/PACKS.md)) |
+| `agentic observe` | Observe | Reconstruct provenance from git history |
+| `agentic doctor` · `--version` | — | Validate bundle, detect drift, verify ledger integrity · print version |
 
-## The bundle
+## The bundle — author once, compile everywhere
 
-One vendor-neutral file is the source of truth. `agentic project` compiles it into every harness you target:
+The whole point: write your fleet, lifecycle, and gates **once**, and never re-author them per harness.
 
 ```yaml
 schema_version: "1"
@@ -181,35 +179,55 @@ sdlc:
 projections: [claude-code, cursor, agents-md]
 ```
 
-Change roles, gates, or sensitivity here → run `agentic project` → every harness updates. No more re-authoring the same rules three times across `.claude`, `.cursor`, and `AGENTS.md`.
+## Reusable packs
+
+Keep well-written personas and standards in one git repo and pin them from every project — versioned by ref, sha-locked, with per-repo overrides:
+
+```yaml
+# .agentic/bundle.yaml
+extends:
+  - git::https://github.com/acme/agentic//personas/security-reviewer.yaml@v1.2.0
+sdlc:
+  roles:
+    - use: security-reviewer        # inherit the canonical persona…
+      owns: ["src/payment/**"]      # …with THIS repo's paths
+      overrides: { refuses: ["floats for money"] }   # …and local additions
+```
+
+```bash
+agentic add git::https://github.com/acme/agentic//personas/security-reviewer.yaml@v1.2.0
+agentic project
+```
+
+Resolution is pinned to an exact commit in `.agentic/agentic.lock` (reproducible; tags move, shas don't). Full spec: **[docs/PACKS.md](docs/PACKS.md)**.
+
+## Roadmap
+
+**Working today:** `init` · `project` (Claude Code + Cursor + AGENTS.md) · `gate` · `ledger`/`trace` · `relay` · `observe` (git) · `doctor` · reusable packs (`add`/`lock`) · hash-chained ledger integrity.
+
+**Next:** ed25519-signed provenance (replacing the hash-chain stand-in — today's ledger detects accidental edits/corruption, not a determined tamperer without an external anchor) · PR/CI/session-log observe adapters · standards & lifecycle packs + a hosted registry · the dev-time ↔ runtime `run_id` join.
 
 ## Where it fits
 
-Agentic CLI is the local, open-source spine of a larger picture — the same trust loop, from your laptop to cross-org agent commerce:
+Agentic CLI is the local, **free-forever, fully-local** spine of a larger picture — the same trust loop, from your laptop to cross-org agent commerce. The commercial layer is the shared Cloud, **never this code**.
 
 ```mermaid
 flowchart LR
-    CLI["<b>agentic</b> (this repo)<br/>local · open source<br/>define · supervise · record"]
+    CLI["<b>agentic</b> (this repo)<br/>local · open source · free"]
     CLOUD["Agentic Cloud<br/>shared ledger · behavior CI<br/>team relay · promote policy"]
     GW["Agentic Gateway<br/>cross-org A2A + settlement<br/>signed bilateral audit"]
     CLI --> CLOUD --> GW
 ```
 
-Learn more at **[agentic-cli.com](https://agentic-cli.com)**.
-
-## Roadmap
-
-**Working today:** `init` · `project` (Claude Code + Cursor + AGENTS.md) · `gate` · `ledger`/`trace` · `relay` · `observe` (git) · `doctor` · hash-chained integrity · **reusable packs** — `add`/`lock` git-source personas with sha-pinned resolution and per-repo overrides ([docs/PACKS.md](docs/PACKS.md)).
-
-**Next:** ed25519 signing (replacing the hash-chain stand-in) · PR/CI/session-log observe adapters · standards & lifecycle packs + a hosted registry · the dev-time ↔ runtime `run_id` join.
+The vision, the Cloud waitlist, and the packs registry: **[agentic-cli.com](https://agentic-cli.com)**.
 
 ## Contributing
 
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Run the tests with:
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest
+.venv/bin/python -m pytest        # 75 tests, standard-library only
 ```
 
 ## License
